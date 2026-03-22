@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { Lock, Eye, EyeOff, Scissors } from 'lucide-react';
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -13,9 +15,15 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-    setLoading(false);
+    
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    } else {
+      navigate('/admin');
+    }
   };
 
   return (
