@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type { ContactSettings } from '../../lib/supabaseClient';
-import { Loader2, Save, Instagram, Mail, MapPin, Phone } from 'lucide-react';
+import { usePreview } from '../../context/PreviewContext';
+import { Loader2, Save, Instagram, Mail, MapPin, Phone, AlertCircle } from 'lucide-react';
 
 const fields: { key: keyof Omit<ContactSettings, 'id'>; label: string; placeholder: string; icon: React.ElementType }[] = [
   { key: 'instagram', label: 'Instagram', placeholder: '@tattoo.studio', icon: Instagram },
@@ -15,15 +16,30 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const { isPreviewMode, previewData, updatePreview } = usePreview();
 
   useEffect(() => {
+    if (isPreviewMode) {
+      setSettings(previewData.contact_settings || { id: '', instagram: null, email: null, whatsapp: null, address: null });
+      setLoading(false);
+      return;
+    }
     supabase.from('contact_settings').select('*').limit(1).single()
       .then(({ data }) => { setSettings(data); setLoading(false); });
-  }, []);
+  }, [isPreviewMode, previewData.contact_settings]);
 
   const handleSave = async () => {
     if (!settings) return;
     setSaving(true);
+
+    if (isPreviewMode) {
+      updatePreview('contact_settings', settings);
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      return;
+    }
+
     const { id, ...rest } = settings;
     if (id) {
       await supabase.from('contact_settings').update(rest).eq('id', id);
@@ -46,6 +62,16 @@ export default function ContactPage() {
 
   return (
     <div className="max-w-xl mx-auto">
+      {isPreviewMode && (
+        <div className="mb-6 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-500 text-sm font-medium">Modo Sandbox Activo</p>
+            <p className="text-amber-500/60 text-xs">Los cambios en los datos de contacto son temporales.</p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-2xl font-serif text-white tracking-wide mb-1">Contacto</h1>
         <p className="text-white/30 text-sm">Datos de contacto mostrados en el footer y sección de contacto.</p>

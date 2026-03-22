@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useLanguage } from "../context/LanguageContext";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { usePreview } from "../context/PreviewContext";
 import type { PortfolioItem } from "../lib/supabaseClient";
 
 const FALLBACK_ITEMS = [
@@ -20,7 +21,7 @@ const OFFSETS_Y = [0, 40, 20, 30, 60, 10, 50, 25, 45, 35];
 export default function OnTheBoard() {
   const { t } = useLanguage();
   const [items, setItems] = useState<PortfolioItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { isPreviewMode, previewData } = usePreview();
 
   useEffect(() => {
     supabase
@@ -30,13 +31,16 @@ export default function OnTheBoard() {
       .order("order")
       .then(({ data }) => {
         setItems(data ?? []);
-        setLoading(false);
       });
   }, []);
 
-  // Use live data if available, else fallback
-  const displayItems = !loading && items.length > 0
-    ? items.map((item, idx) => ({
+  // Use Preview data if in Sandbox mode and not empty, otherwise fallback
+  const sourceItems = isPreviewMode && previewData.portfolio_items.length > 0
+    ? previewData.portfolio_items.filter(i => i.active)
+    : items;
+
+  const displayItems = sourceItems.length > 0
+    ? sourceItems.map((item, idx) => ({
         ...item,
         rotate: ROTATIONS[idx % ROTATIONS.length],
         x: OFFSETS_X[idx % OFFSETS_X.length],
@@ -55,7 +59,7 @@ export default function OnTheBoard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-x-12 md:gap-y-24 pt-4 pb-20 px-4 md:px-12">
-        {displayItems.map((item, idx) => (
+        {displayItems.map((item: any, idx) => (
           <motion.div
             key={item.id ?? idx}
             initial={{ opacity: 0, y: 50, rotate: item.rotate - 10 }}
@@ -69,7 +73,6 @@ export default function OnTheBoard() {
               className="relative p-3 pb-12 bg-[#ecece9] rounded-sm shadow-2xl transition-all duration-300 cursor-pointer"
               style={{ transform: `translate(${item.x}px, ${item.y}px)` }}
             >
-              {/* Tape */}
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-8 bg-white/50 backdrop-blur-sm opacity-70 rotate-3 z-20 border border-white/20 shadow-sm" />
               
               <div className="w-56 h-64 overflow-hidden border border-black/10 bg-black">
@@ -81,7 +84,6 @@ export default function OnTheBoard() {
                 <div className="w-8 h-px bg-black/20 mt-2" />
               </div>
               
-              {/* Sticky Note */}
               {item.noteKey && (
                 <div className="absolute -bottom-6 -right-5 bg-[#fef08a] text-yellow-900 px-4 py-2 font-handwriting text-sm shadow-md rotate-[12deg] border border-yellow-300/50 z-20">
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-3 bg-white/30 -mt-1 rotate-1" />

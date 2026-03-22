@@ -8,9 +8,12 @@ import type { ArtistInfo } from "../lib/supabaseClient";
 const FALLBACK_PHOTO = "https://images.unsplash.com/photo-1542400977-fd08dc75d9e5?q=80&w=600&auto=format&fit=crop";
 const FALLBACK_POLAROID = "https://images.unsplash.com/photo-1590246814392-cb8a9d16a8b1?q=80&w=400&auto=format&fit=crop";
 
+import { usePreview } from "../context/PreviewContext";
+
 export default function MeetArtist() {
   const { t } = useLanguage();
   const [artist, setArtist] = useState<ArtistInfo | null>(null);
+  const { isPreviewMode, previewData } = usePreview();
   
   const features = t('artist.features');
 
@@ -19,8 +22,10 @@ export default function MeetArtist() {
       .then(({ data }) => { if (data) setArtist(data); });
   }, []);
 
-  const photoUrl = artist?.photo_url ?? FALLBACK_PHOTO;
-  const polaroidUrl = artist?.polaroid_url ?? FALLBACK_POLAROID;
+  const displayArtist = isPreviewMode && previewData.artist_info ? previewData.artist_info : artist;
+
+  const photoUrl = displayArtist?.photo_url ?? FALLBACK_PHOTO;
+  const polaroidUrl = displayArtist?.polaroid_url ?? FALLBACK_POLAROID;
 
   return (
     <section id="artist" className="py-32 px-6 md:px-12 max-w-7xl mx-auto flex flex-col lg:flex-row gap-20 lg:gap-32 items-center z-20 relative">

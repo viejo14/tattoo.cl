@@ -7,8 +7,11 @@ interface Props {
   children: React.ReactNode;
 }
 
+import { usePreview } from '../../context/PreviewContext';
+
 export default function ProtectedRoute({ children }: Props) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const { isPreviewMode } = usePreview();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -17,6 +20,9 @@ export default function ProtectedRoute({ children }: Props) {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Allow access if we have a real session OR if we are in Sandbox Mode
+  if (isPreviewMode) return <>{children}</>;
 
   if (session === undefined) {
     return (

@@ -3,23 +3,27 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Minus } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { supabase } from "../lib/supabaseClient";
+import { usePreview } from "../context/PreviewContext";
 import type { FaqItem } from "../lib/supabaseClient";
 
 export default function FAQ() {
   const { t, language } = useLanguage();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { isPreviewMode, previewData } = usePreview();
 
   useEffect(() => {
     supabase.from("faqs").select("*").eq("active", true).order("order")
-      .then(({ data }) => { setFaqs(data ?? []); setLoading(false); });
+      .then(({ data }) => { setFaqs(data ?? []); });
   }, []);
 
   // Pick bilingual content based on active language.
-  // Falls back to static translated content if Supabase has no data yet.
-  const displayFaqs = !loading && faqs.length > 0
-    ? faqs.map(f => ({
+  const sourceFaqs = isPreviewMode && previewData.faqs.length > 0
+    ? previewData.faqs.filter(f => f.active)
+    : faqs;
+
+  const displayFaqs = sourceFaqs.length > 0
+    ? sourceFaqs.map(f => ({
         question: language === 'es' ? f.question_es : f.question_en,
         answer: language === 'es' ? f.answer_es : f.answer_en,
       }))

@@ -14,10 +14,13 @@ const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1621008210350-02aeb7d94cf1?q=80&w=400&auto=format&fit=crop",
 ];
 
+import { usePreview } from "../context/PreviewContext";
+
 export default function Hero() {
   const { t } = useLanguage();
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isPreviewMode, previewData } = usePreview();
 
   useEffect(() => {
     supabase
@@ -31,11 +34,15 @@ export default function Hero() {
       });
   }, []);
 
-  // Use real slides if available, otherwise use fallback images (first 5)
-  const images =
-    !loading && slides.length > 0
-      ? slides.slice(0, 5).map((s) => s.image_url)
-      : FALLBACK_IMAGES;
+  // Use Preview data if in Sandbox mode and not empty, 
+  // otherwise fallback to Supabase data, then to static FALLBACKS.
+  const displaySlides = isPreviewMode && previewData.hero_slides.length > 0
+    ? previewData.hero_slides.filter(s => s.active)
+    : slides.length > 0 ? slides : [];
+
+  const images = displaySlides.length > 0
+    ? displaySlides.slice(0, 5).map((s) => s.image_url)
+    : FALLBACK_IMAGES;
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center pt-24 pb-20 px-4 overflow-hidden z-10">

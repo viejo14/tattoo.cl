@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { usePreview } from '../../context/PreviewContext';
 import { Lock, Eye, EyeOff, Scissors } from 'lucide-react';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { setPreviewMode } = usePreview();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,8 +24,14 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      setPreviewMode(false); // Ensure we're NOT in preview mode if real login succeeds
       navigate('/admin');
     }
+  };
+
+  const handleGuestLogin = () => {
+    setPreviewMode(true);
+    navigate('/admin');
   };
 
   return (
@@ -85,6 +93,19 @@ export default function LoginPage() {
           >
             <Lock className="w-4 h-4" />
             {loading ? 'Ingresando...' : 'Ingresar'}
+          </button>
+
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+            <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-[#0a0a0a] px-4 text-white/20">O prueba el sistema</span></div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            className="w-full py-3 rounded-xl border border-white/10 text-white/60 font-medium text-xs uppercase tracking-[0.2em] hover:bg-white/5 hover:text-white transition-all text-center"
+          >
+            Entrar como Invitado (Modo Demo)
           </button>
         </form>
       </div>

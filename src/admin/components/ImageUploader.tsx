@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { usePreview } from '../../context/PreviewContext';
 import { Upload, X, Loader2, CheckCircle } from 'lucide-react';
 
 interface Props {
@@ -15,6 +16,7 @@ export default function ImageUploader({ bucket, folder, onUpload, label = 'Subir
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const { isPreviewMode } = usePreview();
 
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -25,6 +27,17 @@ export default function ImageUploader({ bucket, folder, onUpload, label = 'Subir
     setUploading(true);
     setError('');
     setSuccess(false);
+
+    if (isPreviewMode) {
+      // Sandbox Mode: Use local blob URL
+      await new Promise(r => setTimeout(r, 800)); // Fake realistic delay
+      const localUrl = URL.createObjectURL(file);
+      onUpload(localUrl);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+      setUploading(false);
+      return;
+    }
 
     const ext = file.name.split('.').pop();
     const filename = `${folder}/${Date.now()}.${ext}`;
@@ -51,7 +64,7 @@ export default function ImageUploader({ bucket, folder, onUpload, label = 'Subir
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) uploadFile(file);
-  }, []);
+  }, [isPreviewMode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

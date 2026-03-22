@@ -1,26 +1,42 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type { ArtistInfo } from '../../lib/supabaseClient';
+import { usePreview } from '../../context/PreviewContext';
 import ImageUploader from '../components/ImageUploader';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, AlertCircle } from 'lucide-react';
 
 export default function ArtistPage() {
   const [info, setInfo] = useState<ArtistInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const { isPreviewMode, previewData, updatePreview } = usePreview();
 
   useEffect(() => {
+    if (isPreviewMode) {
+      setInfo(previewData.artist_info || { id: '', name: 'Rowan Black', photo_url: null, polaroid_url: null, updated_at: '' });
+      setLoading(false);
+      return;
+    }
     supabase.from('artist_info').select('*').limit(1).single()
       .then(({ data }) => {
         setInfo(data);
         setLoading(false);
       });
-  }, []);
+  }, [isPreviewMode, previewData.artist_info]);
 
   const handleSave = async () => {
     if (!info) return;
     setSaving(true);
+
+    if (isPreviewMode) {
+      updatePreview('artist_info', { ...info, updated_at: new Date().toISOString() });
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      return;
+    }
+
     const { id, ...rest } = info;
     if (id) {
       await supabase.from('artist_info').update({ ...rest, updated_at: new Date().toISOString() }).eq('id', id);
@@ -43,6 +59,16 @@ export default function ArtistPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {isPreviewMode && (
+        <div className="mb-6 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-500 text-sm font-medium">Modo Sandbox Activo</p>
+            <p className="text-amber-500/60 text-xs">Los cambios en el perfil del artista son temporales.</p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-2xl font-serif text-white tracking-wide mb-1">Artista</h1>
         <p className="text-white/30 text-sm">Foto de perfil y polaroid que aparecen en la sección "Conoce al artista".</p>

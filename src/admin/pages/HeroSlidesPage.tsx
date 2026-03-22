@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type { HeroSlide } from '../../lib/supabaseClient';
+import { usePreview } from '../../context/PreviewContext';
 import ImageUploader from '../components/ImageUploader';
-import { Trash2, GripVertical, Loader2, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Trash2, GripVertical, Loader2, Plus, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 
 export default function HeroSlidesPage() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { isPreviewMode, previewData, updatePreview } = usePreview();
 
   const fetchSlides = async () => {
+    if (isPreviewMode) {
+      setSlides(previewData.hero_slides);
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from('hero_slides')
       .select('*')
@@ -18,11 +25,25 @@ export default function HeroSlidesPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchSlides(); }, []);
+  useEffect(() => { fetchSlides(); }, [isPreviewMode, previewData.hero_slides]);
 
   const handleUpload = async (url: string) => {
     setSaving(true);
     const maxOrder = slides.length > 0 ? Math.max(...slides.map(s => s.order)) + 1 : 0;
+    
+    if (isPreviewMode) {
+      const newSlide: HeroSlide = {
+        id: crypto.randomUUID(),
+        image_url: url,
+        order: maxOrder,
+        active: true,
+        created_at: new Date().toISOString()
+      };
+      updatePreview('hero_slides', [...slides, newSlide]);
+      setSaving(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('hero_slides')
       .insert({ image_url: url, order: maxOrder, active: true })
@@ -33,6 +54,11 @@ export default function HeroSlidesPage() {
   };
 
   const toggleActive = async (slide: HeroSlide) => {
+    if (isPreviewMode) {
+      const updated = slides.map(s => s.id === slide.id ? { ...s, active: !s.active } : s);
+      updatePreview('hero_slides', updated);
+      return;
+    }
     const { data } = await supabase
       .from('hero_slides')
       .update({ active: !slide.active })
@@ -43,6 +69,10 @@ export default function HeroSlidesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (isPreviewMode) {
+      updatePreview('hero_slides', slides.filter(s => s.id !== id));
+      return;
+    }
     await supabase.from('hero_slides').delete().eq('id', id);
     setSlides(prev => prev.filter(s => s.id !== id));
   };
@@ -55,6 +85,16 @@ export default function HeroSlidesPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      {isPreviewMode && (
+        <div className="mb-6 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-500 text-sm font-medium">Modo Sandbox Activo</p>
+            <p className="text-amber-500/60 text-xs">Cualquier cambio que hagas aquí se verá reflejado en la página de inicio, pero desaparecerá al cerrar la pestaña.</p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-2xl font-serif text-white tracking-wide mb-1">Hero Slides</h1>
         <p className="text-white/30 text-sm">Imágenes del carrusel de portada. Se muestran 5 a la vez.</p>
@@ -91,7 +131,7 @@ export default function HeroSlidesPage() {
                 className="w-16 h-20 object-cover rounded-lg flex-shrink-0"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-white/50 text-xs truncate">{slide.image_url.split('/').pop()}</p>
+                <p className="text-white/50 text-xs truncate">{slide.image_url.startsWith('blob:') ? 'Imagen local (Demo)' : slide.image_url.split('/').pop()}</p>
                 <p className="text-white/25 text-xs mt-0.5">Orden: {slide.order}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">

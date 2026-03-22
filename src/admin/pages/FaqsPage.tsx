@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type { FaqItem } from '../../lib/supabaseClient';
-import { Loader2, Plus, Trash2, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { usePreview } from '../../context/PreviewContext';
+import { Loader2, Plus, Trash2, Save, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 
 const emptyFaq = (): Omit<FaqItem, 'id'> => ({
   question_es: '', answer_es: '', question_en: '', answer_en: '', order: 0, active: true,
@@ -14,26 +15,52 @@ export default function FaqsPage() {
   const [adding, setAdding] = useState(false);
   const [newFaq, setNewFaq] = useState(emptyFaq());
   const [saving, setSaving] = useState(false);
+  const { isPreviewMode, previewData, updatePreview } = usePreview();
 
   useEffect(() => {
+    if (isPreviewMode) {
+      setFaqs(previewData.faqs);
+      setLoading(false);
+      return;
+    }
     supabase.from('faqs').select('*').order('order')
       .then(({ data }) => { setFaqs(data ?? []); setLoading(false); });
-  }, []);
+  }, [isPreviewMode, previewData.faqs]);
 
   const handleAdd = async () => {
     setSaving(true);
     const order = faqs.length > 0 ? Math.max(...faqs.map(f => f.order)) + 1 : 0;
+    
+    if (isPreviewMode) {
+      const newItem: FaqItem = { ...newFaq, id: crypto.randomUUID(), order };
+      updatePreview('faqs', [...faqs, newItem]);
+      setNewFaq(emptyFaq());
+      setAdding(false);
+      setSaving(false);
+      return;
+    }
+
     const { data } = await supabase.from('faqs').insert({ ...newFaq, order }).select().single();
     if (data) { setFaqs(prev => [...prev, data]); setNewFaq(emptyFaq()); setAdding(false); }
     setSaving(false);
   };
 
   const handleUpdate = async (faq: FaqItem) => {
+    if (isPreviewMode) {
+      const updated = faqs.map(f => f.id === faq.id ? faq : f);
+      updatePreview('faqs', updated);
+      return;
+    }
     await supabase.from('faqs').update(faq).eq('id', faq.id);
     setFaqs(prev => prev.map(f => f.id === faq.id ? faq : f));
   };
 
   const handleDelete = async (id: string) => {
+    if (isPreviewMode) {
+      updatePreview('faqs', faqs.filter(f => f.id !== id));
+      if (expandedId === id) setExpandedId(null);
+      return;
+    }
     await supabase.from('faqs').delete().eq('id', id);
     setFaqs(prev => prev.filter(f => f.id !== id));
     if (expandedId === id) setExpandedId(null);
@@ -47,6 +74,16 @@ export default function FaqsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {isPreviewMode && (
+        <div className="mb-6 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-500 text-sm font-medium">Modo Sandbox Activo</p>
+            <p className="text-amber-500/60 text-xs">Puedes añadir y editar preguntas frecuentes de prueba.</p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-serif text-white tracking-wide mb-1">FAQs</h1>

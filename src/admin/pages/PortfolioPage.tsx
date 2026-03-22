@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type { PortfolioItem } from '../../lib/supabaseClient';
+import { usePreview } from '../../context/PreviewContext';
 import ImageUploader from '../components/ImageUploader';
-import { Trash2, Loader2, Plus, ToggleLeft, ToggleRight, Save, Edit2, X } from 'lucide-react';
+import { Trash2, Loader2, Plus, ToggleLeft, ToggleRight, Save, Edit2, X, AlertCircle } from 'lucide-react';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Sin estado' },
@@ -25,14 +26,35 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBuf, setEditBuf] = useState<Partial<PortfolioItem>>({});
+  const { isPreviewMode, previewData, updatePreview } = usePreview();
 
   useEffect(() => {
+    if (isPreviewMode) {
+      setItems(previewData.portfolio_items);
+      setLoading(false);
+      return;
+    }
     supabase.from('portfolio_items').select('*').order('order')
       .then(({ data }) => { setItems(data ?? []); setLoading(false); });
-  }, []);
+  }, [isPreviewMode, previewData.portfolio_items]);
 
   const handleUpload = async (url: string) => {
     const maxOrder = items.length > 0 ? Math.max(...items.map(i => i.order)) + 1 : 0;
+    
+    if (isPreviewMode) {
+      const newItem: PortfolioItem = {
+        id: crypto.randomUUID(),
+        image_url: url,
+        title: 'Sin título',
+        status: '',
+        order: maxOrder,
+        active: true,
+        created_at: new Date().toISOString()
+      };
+      updatePreview('portfolio_items', [...items, newItem]);
+      return;
+    }
+
     const { data } = await supabase
       .from('portfolio_items')
       .insert({ image_url: url, title: 'Sin título', status: '', order: maxOrder, active: true })
@@ -46,6 +68,12 @@ export default function PortfolioPage() {
   };
 
   const saveEdit = async (item: PortfolioItem) => {
+    if (isPreviewMode) {
+      const updated = items.map(i => i.id === item.id ? { ...i, ...editBuf } : i);
+      updatePreview('portfolio_items', updated);
+      setEditingId(null);
+      return;
+    }
     const { data } = await supabase.from('portfolio_items')
       .update(editBuf).eq('id', item.id).select().single();
     if (data) setItems(prev => prev.map(i => i.id === data.id ? data : i));
@@ -53,12 +81,21 @@ export default function PortfolioPage() {
   };
 
   const toggleActive = async (item: PortfolioItem) => {
+    if (isPreviewMode) {
+      const updated = items.map(i => i.id === item.id ? { ...i, active: !i.active } : i);
+      updatePreview('portfolio_items', updated);
+      return;
+    }
     const { data } = await supabase.from('portfolio_items')
       .update({ active: !item.active }).eq('id', item.id).select().single();
     if (data) setItems(prev => prev.map(i => i.id === data.id ? data : i));
   };
 
   const handleDelete = async (id: string) => {
+    if (isPreviewMode) {
+      updatePreview('portfolio_items', items.filter(i => i.id !== id));
+      return;
+    }
     await supabase.from('portfolio_items').delete().eq('id', id);
     setItems(prev => prev.filter(i => i.id !== id));
   };
@@ -71,6 +108,16 @@ export default function PortfolioPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {isPreviewMode && (
+        <div className="mb-6 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-500 text-sm font-medium">Modo Sandbox Activo</p>
+            <p className="text-amber-500/60 text-xs">Puedes añadir y editar piezas del portafolio libremente.</p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-2xl font-serif text-white tracking-wide mb-1">Portafolio</h1>
         <p className="text-white/30 text-sm">Diseños "On the Board". Gestiona imágenes, títulos y estados.</p>
