@@ -19,7 +19,6 @@ import { usePreview } from "../context/PreviewContext";
 export default function Hero() {
   const { t } = useLanguage();
   const [slides, setSlides] = useState<HeroSlide[]>([]);
-  const [loading, setLoading] = useState(true);
   const { isPreviewMode, previewData } = usePreview();
 
   useEffect(() => {
@@ -30,7 +29,6 @@ export default function Hero() {
       .order("order")
       .then(({ data }) => {
         setSlides(data ?? []);
-        setLoading(false);
       });
   }, []);
 
